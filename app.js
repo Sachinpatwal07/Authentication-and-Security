@@ -3,6 +3,7 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require('mongoose');
 
+
 const app = express();
 
 app.set('view engine', 'ejs');
@@ -10,7 +11,19 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({extended: true }));
 app.use(express.static("public"));
 
+mongoose.connect('mongodb://localhost:27017/userDB', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
 
+const userSchema = {
+
+  email: String,
+  password:String
+
+}
+
+const User= new mongoose.model("User",userSchema);
 
 
 app.get("/",(req,res)=>{
@@ -33,6 +46,52 @@ app.get("/login",(req,res)=>{
 res.render("login");
 
 })
+
+
+app.post("/register",(req,res)=>{
+
+const newUser = new User({
+
+ email:req.body.username,
+ password:req.body.password
+
+})
+
+newUser.save();
+res.render("secrets");
+
+
+})
+
+app.post("/login",(req,res)=>{
+
+  const userName=req.body.username;
+  const password=req.body.password;
+
+  User.findOne({email:userName},(err,foundUser)=>{
+
+   if(!err)
+   {
+     if(foundUser)
+     {
+       if(foundUser.password===password)
+          res.render("secrets")
+
+
+     }
+
+   }
+   else
+   console.log(err);
+
+
+  })
+
+
+
+
+})
+
 
 
 
