@@ -8,6 +8,7 @@ const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
 const findOrCreate = require('mongoose-findorcreate')
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 
 
 
@@ -39,7 +40,9 @@ const userSchema = new mongoose.Schema ({
 
   email: String,
   password:String,
-  googleId:String
+  googleId:String,
+  facebookId:String,
+  secret:String
 
 })
 
@@ -66,28 +69,28 @@ passport.use(new GoogleStrategy({
     callbackURL: "http://localhost:3000/auth/google/secrets"
   },
   function(accessToken, refreshToken, profile, cb) {
-    
+
     User.findOrCreate({ googleId: profile.id }, function (err, user) {
       return cb(err, user);
-
-      // if(err)
-      // {
-      //   res.redirect("/register");
-      // }
-      // else{
-      //
-      //   passport.authenticate("google")(req,res,function(){
-      //
-      //       res.redirect("/secrets")
-      //
-      //   })
-      //
-      //
-      //
-      // }
     });
   }
 ));
+
+passport.use(new FacebookStrategy({
+    clientID: process.env.APP_ID,
+    clientSecret: process.env.APP_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets",
+     profileFields: ['id', 'emails', 'name']
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+
+
 
 app.get("/",(req,res)=>{
 
@@ -106,13 +109,21 @@ app.get("/auth/google",
   passport.authenticate("google", { scope: ["profile"], prompt: 'select_account' }
 ));
 
+app.get('/auth/facebook',
+    passport.authenticate("facebook"));
+
   app.get('/auth/google/secrets',
     passport.authenticate('google', { failureRedirect: '/login' }),
     function(req, res) {
-      // Successful authentication, redirect home.
       res.redirect('/secrets');
     });
 
+    app.get('/auth/facebook/secrets',
+      passport.authenticate('facebook', { failureRedirect: '/login' }),
+      function(req, res) {
+
+        res.redirect('/secrets');
+      });
 
 
 
@@ -135,10 +146,65 @@ app.get("/logout",(req,res)=>{
 app.get("/secrets",(req,res)=>{
 
 if(req.isAuthenticated())
-res.render("secrets")
+{
+   User.find({"secret":{ $ne:null}},(err,foundUsers)=>{
+
+   if(err)
+   console.log(err)
+   else
+   {
+     if(foundUsers)
+     res.render("secrets",{users:foundUsers});
+   }
+
+
+
+   })
+
+
+
+
+}
 else
 res.redirect("/");
 
+
+})
+
+app.get("/submit",(req,res)=>{
+
+if(req.isAuthenticated())
+res.render("submit");
+else
+res.redirect("/login")
+
+
+})
+
+app.post("/submit",(req,res)=>{
+
+
+
+req.user.secret=req.body.secret;
+
+User.findById(req.user._id,(err,foundUser)=>{
+
+ if(err)
+ console.log(err)
+ else
+ {
+    if(foundUser)
+    foundUser.secret=req.body.secret;
+    foundUser.save(function(){
+      res.redirect("/secrets");
+
+    });
+
+
+ }
+
+
+})
 
 })
 
